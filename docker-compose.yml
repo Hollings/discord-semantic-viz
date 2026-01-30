@@ -51,17 +51,30 @@ services:
       - PYTHONUNBUFFERED=1
     command: >
       sh -c "
-        echo '=== Discord Data Viz Pipeline ===' &&
-        echo '' &&
-        python pipeline/1_parse_exports.py &&
-        echo '' &&
-        python pipeline/2_generate_embeddings.py &&
-        echo '' &&
-        python pipeline/3_run_tsne.py &&
-        echo '' &&
-        python pipeline/4_cluster.py &&
-        echo '' &&
-        echo '=== Pipeline complete! ===' &&
+        if python check_cache.py; then
+          echo '=== Discord Data Viz Pipeline ===' &&
+          echo '' &&
+          python pipeline/1_parse_exports.py &&
+          echo '' &&
+          python pipeline/2_generate_embeddings.py &&
+          echo '' &&
+          python pipeline/3_run_tsne.py &&
+          echo '' &&
+          python pipeline/4_cluster.py &&
+          echo '' &&
+          echo '=== Pipeline complete! ===' &&
+          python -c \"
+import hashlib
+from pathlib import Path
+files = sorted(Path('/app/exports').glob('*.json'))
+h = hashlib.md5()
+for f in files:
+    s = f.stat()
+    h.update(f'{f.name}:{s.st_size}:{int(s.st_mtime)}'.encode())
+Path('/app/output/.exports_hash').write_text(h.hexdigest())
+print('Cache hash saved')
+\"
+        fi &&
         echo '' &&
         echo 'Starting server on http://localhost:8080' &&
         python serve.py
