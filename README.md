@@ -2,6 +2,8 @@
 
 Visualize your Discord messages as a semantic map. Messages with similar content cluster together using word2vec embeddings and t-SNE dimensionality reduction.
 
+![Screenshot](screenshot.png)
+
 ## Quick Start
 
 ### 1. Export your Discord channels
