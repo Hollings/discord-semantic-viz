@@ -15,7 +15,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy pipeline and frontend
 COPY pipeline/ pipeline/
 COPY frontend/ frontend/
-COPY serve.py check_cache.py ./
+COPY serve.py check_cache.py save_hash.py ./
 
 # Create directories for data
 RUN mkdir -p exports output
