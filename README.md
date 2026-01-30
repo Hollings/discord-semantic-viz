@@ -41,12 +41,39 @@ docker compose up -d
 docker compose run --rm viz python pipeline/4_cluster.py
 ```
 
-**Without Docker:**
+**Without Docker (Linux/Mac/WSL):**
 ```bash
+# Install dependencies
 pip install -r requirements.txt
-./pipeline.sh        # Linux/WSL/Mac
-pipeline.bat         # Windows
+
+# Run the full pipeline + server
+./pipeline.sh
+
+# Or run steps manually:
+python pipeline/1_parse_exports.py
+python pipeline/2_generate_embeddings.py
+python pipeline/3_run_tsne.py
+python pipeline/4_cluster.py
+python serve.py
 ```
+
+**Without Docker (Windows):**
+```batch
+:: Install dependencies
+pip install -r requirements.txt
+
+:: Run the full pipeline + server
+pipeline.bat
+
+:: Or run steps manually:
+python pipeline\1_parse_exports.py
+python pipeline\2_generate_embeddings.py
+python pipeline\3_run_tsne.py
+python pipeline\4_cluster.py
+python serve.py
+```
+
+**Note:** The first run downloads a 1.6GB word2vec model to `~/gensim-data/`. HDBSCAN requires a C compiler - if `pip install` fails, use conda: `conda install -c conda-forge hdbscan`
 
 The pipeline will:
 1. Parse all JSON exports in `exports/`
