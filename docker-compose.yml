@@ -5,6 +5,8 @@ services:
       - ./exports:/app/exports:ro
       - ./output:/app/output
       - gensim_data:/root/gensim-data
+    environment:
+      - PYTHONUNBUFFERED=1
     command: >
       sh -c "
         echo '=== Discord Data Viz Pipeline ===' &&
@@ -30,6 +32,7 @@ services:
       - ./output:/app/output:ro
     environment:
       - NO_BROWSER=1
+      - PYTHONUNBUFFERED=1
     command: python serve.py
     profiles:
       - server
@@ -45,6 +48,7 @@ services:
       - gensim_data:/root/gensim-data
     environment:
       - NO_BROWSER=1
+      - PYTHONUNBUFFERED=1
     command: >
       sh -c "
         echo '=== Discord Data Viz Pipeline ===' &&
