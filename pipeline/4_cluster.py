@@ -81,11 +81,11 @@ def main():
     # Goal: catch small clusters (10-20 messages) while keeping max around 1% of data
     n_messages = len(messages)
 
-    # Target ~200 clusters for 15-20k message datasets
-    min_cluster_size = 15
-
-    # min_samples controls how conservative clustering is
-    min_samples = 7
+    # Dynamic parameters targeting ~200 clusters
+    # Based on testing: 16k messages with min_cluster_size=15 → 205 clusters
+    target_clusters = 200
+    min_cluster_size = max(10, n_messages // (target_clusters * 5))
+    min_samples = max(5, min_cluster_size // 2)
 
     print(f"Running HDBSCAN clustering (min_cluster_size={min_cluster_size}, min_samples={min_samples})...")
     clusterer = hdbscan.HDBSCAN(
