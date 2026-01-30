@@ -1,0 +1,1815 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Semantic Message Map</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0a0a0a;
+            color: #fff;
+            overflow: hidden;
+            touch-action: none;
+        }
+        #container {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+        }
+        #canvas {
+            width: 100%;
+            height: 100%;
+            cursor: default;
+        }
+        #canvas.dragging {
+            cursor: grabbing;
+        }
+        #labelOverlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            overflow: hidden;
+        }
+        .cluster-label {
+            position: absolute;
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            white-space: nowrap;
+            text-align: center;
+            text-shadow: 0 0 4px rgba(0, 0, 0, 0.8), 1px 1px 2px rgba(0, 0, 0, 0.6);
+            transition: opacity 0.2s;
+        }
+        #info {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(20, 20, 20, 0.9);
+            padding: 15px 20px;
+            border-radius: 8px;
+            border: 1px solid #333;
+            max-width: 300px;
+            min-height: 105.75px;
+            box-sizing: border-box;
+        }
+        #search {
+            position: absolute;
+            top: 20px;
+            left: 340px;
+            background: rgba(20, 20, 20, 0.9);
+            padding: 15px 20px;
+            border-radius: 8px;
+            border: 1px solid #333;
+            max-width: 300px;
+        }
+        #search input {
+            background: #1a1a1a;
+            border: 1px solid #444;
+            color: #fff;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 14px;
+            width: 100%;
+            outline: none;
+        }
+        #search input:focus {
+            border-color: #5bf;
+        }
+        #search input::placeholder {
+            color: #666;
+        }
+        #info h2 {
+            font-size: 16px;
+            margin-bottom: 10px;
+            color: #5bf;
+            cursor: pointer;
+            user-select: none;
+        }
+        #info h2:hover {
+            color: #7df;
+        }
+        #infoContent {
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+        #infoContent.collapsed {
+            max-height: 0;
+        }
+        .filter-section {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #333;
+        }
+        .filter-section h3 {
+            font-size: 12px;
+            color: #999;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            user-select: none;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .filter-section h3:hover {
+            color: #bbb;
+        }
+        .filter-content {
+            overflow-y: auto;
+            transition: max-height 0.3s ease;
+            max-height: 300px;
+        }
+        .filter-content.collapsed {
+            max-height: 0;
+            overflow: hidden;
+        }
+        .filter-toggles {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        .filter-toggle-btn {
+            font-size: 10px;
+            padding: 2px 6px;
+            cursor: pointer;
+            background: #333;
+            color: #999;
+            border: 1px solid #555;
+            border-radius: 3px;
+        }
+        .filter-toggle-btn:hover {
+            background: #444;
+            color: #ccc;
+        }
+        .filter-item {
+            display: flex;
+            align-items: center;
+            margin: 5px 0;
+            font-size: 12px;
+        }
+        .filter-item input[type="checkbox"] {
+            margin-right: 8px;
+            cursor: pointer;
+        }
+        .filter-item label {
+            cursor: pointer;
+            color: #ccc;
+        }
+        #info p {
+            font-size: 13px;
+            line-height: 1.4;
+            color: #ccc;
+        }
+        #messageCount {
+            margin-bottom: 0;
+        }
+        #tooltip {
+            position: absolute;
+            background: rgba(20, 20, 20, 0.95);
+            padding: 10px 15px;
+            border-radius: 6px;
+            border: 1px solid #444;
+            max-width: 400px;
+            pointer-events: none;
+            display: none;
+            z-index: 1000;
+        }
+        #tooltip .author {
+            color: #5bf;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        #tooltip .content {
+            color: #ddd;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+        #selectedNodeTooltip {
+            position: absolute;
+            background: rgba(20, 20, 20, 0.95);
+            padding: 10px 15px;
+            border-radius: 6px;
+            border: 2px solid #ffff00;
+            max-width: 400px;
+            pointer-events: none;
+            display: none;
+            z-index: 999;
+        }
+        #selectedNodeTooltip button,
+        #selectedNodeTooltip a {
+            pointer-events: auto;
+        }
+        #selectedNodeTooltip .author {
+            color: #ffff00;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        #selectedNodeTooltip .content {
+            color: #ddd;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 18px;
+            color: #5bf;
+        }
+
+        /* Mobile layout */
+        @media (max-width: 680px) {
+            #info {
+                top: 10px;
+                left: 10px;
+                max-width: calc(100vw - 20px);
+                padding: 10px 15px;
+            }
+            #search {
+                top: auto;
+                bottom: 10px;
+                left: 10px;
+                max-width: calc(100vw - 20px);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <canvas id="canvas"></canvas>
+        <div id="labelOverlay"></div>
+        <div id="info">
+            <h2>Semantic Message Map &#9660;</h2>
+            <p id="messageCount">Loading...</p>
+            <div id="infoContent" class="collapsed">
+                <p style="margin-top: 10px; font-size: 11px; color: #999;">Drag to pan - Scroll to zoom - Hover for details - F to search</p>
+
+                <div class="filter-section">
+                    <h3><span>Filter by Author</span><span>&#9650;</span></h3>
+                    <div class="filter-content">
+                        <div class="filter-toggles">
+                            <button class="filter-toggle-btn" id="authorAll">All</button>
+                            <button class="filter-toggle-btn" id="authorNone">None</button>
+                            <button class="filter-toggle-btn" id="authorInvert">Invert</button>
+                        </div>
+                        <div id="authorFilters"></div>
+                    </div>
+                </div>
+
+                <div class="filter-section">
+                    <h3><span>Filter by Channel</span><span>&#9650;</span></h3>
+                    <div class="filter-content">
+                        <div class="filter-toggles">
+                            <button class="filter-toggle-btn" id="channelAll">All</button>
+                            <button class="filter-toggle-btn" id="channelNone">None</button>
+                            <button class="filter-toggle-btn" id="channelInvert">Invert</button>
+                        </div>
+                        <div id="channelFilters"></div>
+                    </div>
+                </div>
+
+                <div class="filter-section">
+                    <h3><span>Filter by Cluster</span><span>&#9650;</span></h3>
+                    <div class="filter-content">
+                        <div class="filter-toggles">
+                            <button class="filter-toggle-btn" id="clusterAll">All</button>
+                            <button class="filter-toggle-btn" id="clusterNone">None</button>
+                            <button class="filter-toggle-btn" id="clusterInvert">Invert</button>
+                        </div>
+                        <div id="clusterFilters"></div>
+                    </div>
+                </div>
+
+                <div class="filter-section">
+                    <h3>Visual Settings</h3>
+                    <div style="margin-top: 8px; display: flex; flex-direction: column; gap: 6px;">
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 12px;">
+                            <input type="checkbox" id="bloomToggle" checked style="cursor: pointer;">
+                            <span>Node Bloom/Glow Effect</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 12px;">
+                            <input type="checkbox" id="clusterPolygonsToggle" checked style="cursor: pointer;">
+                            <span>Cluster Polygons</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 12px;">
+                            <input type="checkbox" id="clusterNamesToggle" checked style="cursor: pointer;">
+                            <span>Cluster Names</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 12px;">
+                            <input type="checkbox" id="cursorTracersToggle" checked style="cursor: pointer;">
+                            <span>Cursor Tracers</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 12px;">
+                            <input type="checkbox" id="starsToggle" checked style="cursor: pointer;">
+                            <span>Twinkling Stars</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 12px;">
+                            <input type="checkbox" id="performanceModeToggle" style="cursor: pointer;">
+                            <span>Performance Mode</span>
+                        </label>
+                        <div id="perfDebug" style="font-size: 10px; color: #888; margin-top: 4px;"></div>
+                    </div>
+                </div>
+
+                <div class="filter-section">
+                    <h3>Zoom Level</h3>
+                    <p id="zoomLevel" style="font-size: 14px; color: #5bf; margin-top: 5px;">1.00x</p>
+                </div>
+            </div>
+        </div>
+        <div id="search">
+            <input type="text" id="searchInput" placeholder="Search messages...">
+            <div style="margin-top: 8px; display: flex; gap: 4px;">
+                <button id="refreshCache" style="padding: 4px 8px; font-size: 11px; cursor: pointer; background: #333; color: #999; border: 1px solid #555; border-radius: 3px;">Refresh Data</button>
+                <button id="clearCache" style="padding: 4px 8px; font-size: 11px; cursor: pointer; background: #333; color: #999; border: 1px solid #555; border-radius: 3px;">Full Reset</button>
+            </div>
+        </div>
+        <div id="tooltip">
+            <div class="author"></div>
+            <div class="content"></div>
+        </div>
+        <div id="selectedNodeTooltip">
+            <div style="display: flex; justify-content: space-between; align-items: start; gap: 10px;">
+                <div style="flex: 1; min-width: 0;">
+                    <div class="author"></div>
+                    <div class="content"></div>
+                </div>
+                <div style="display: flex; gap: 4px;">
+                    <button id="copyUrlBtn" style="background: none; border: none; cursor: pointer; padding: 4px; color: #5bf; font-size: 16px;" title="Copy viz permalink">&#128279;</button>
+                    <a id="discordLinkBtn" href="#" target="_blank" style="background: none; border: none; cursor: pointer; padding: 4px; color: #5865F2; font-size: 16px; text-decoration: none;" title="View in Discord">&#128172;</a>
+                </div>
+            </div>
+        </div>
+        <div class="loading">
+            <div id="loadingText">Loading...</div>
+            <div id="progressBar" style="display: none; margin-top: 10px; width: 200px; height: 4px; background: #333; border-radius: 2px; overflow: hidden;">
+                <div id="progressFill" style="width: 0%; height: 100%; background: #4a9eff; transition: width 0.2s;"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const tooltip = document.getElementById('tooltip');
+        const loading = document.querySelector('.loading');
+        const searchInput = document.getElementById('searchInput');
+        const labelOverlay = document.getElementById('labelOverlay');
+
+        // Discord link configuration - read from data
+        let GUILD_ID = null;
+
+        // Channel name mapping for display
+        let channelNames = {};
+
+        let messages = [];
+        let filteredMessages = [];
+        let searchTerm = '';
+        let selectedAuthors = new Set();
+        let selectedChannels = new Set();
+        let selectedClusters = new Set();
+        let clusters = {}; // cluster_id -> { name, points, hull, center }
+        const clusterLabels = new Map(); // cluster_id -> HTMLElement
+        let selectedMessageId = null; // Track currently selected message for URL anchor
+        let viewX = 0;
+        let viewY = 0;
+        let zoom = 1;
+        let targetZoom = 1;
+        let targetViewX = 0;
+        let targetViewY = 0;
+        let isDragging = false;
+        let lastFrameTime = performance.now();
+        const LERP_SPEED = 18.5; // Higher = faster interpolation (units per second)
+        let bloomEnabled = true;
+        let clusterPolygonsEnabled = true;
+        let clusterNamesEnabled = true;
+        let cursorTracersEnabled = true;
+        let starsEnabled = true;
+        let performanceModeEnabled = false;
+        let velocityX = 0;
+        let velocityY = 0;
+        const INERTIA_DECAY = 0.92; // Velocity decay per frame
+        let dragMoved = false; // Track if mouse moved during drag
+
+        // Performance mode variables
+        let frameTimes = [];
+        let currentFPS = 60;
+        let performanceHiddenNodes = new Set();
+        let nodeCullRatio = 0; // 0 = show all, 1 = hide most
+        let lastViewportNodeCount = 0; // Track viewport nodes (before culling)
+        let isWindowFocused = true; // Track window focus for performance mode
+        let nodeOpacities = new Map(); // Track opacity for fade transitions (0-1)
+        const FADE_SPEED = 6.67; // Opacity change per second (1/0.15s = 6.67)
+        let nodeFadeInDelays = new Map(); // Random 0-2s delay for each node
+        let nodeFastDelayApplied = new Set(); // Track which nodes have had fast delay override applied
+        let currentTime = 0; // Track cumulative time
+
+        // Performance optimization: cache author hue values
+        const authorHueCache = new Map();
+        function getCachedHue(author) {
+            if (!authorHueCache.has(author)) {
+                authorHueCache.set(author, hashCode(author) % 360);
+            }
+            return authorHueCache.get(author);
+        }
+
+        // Performance optimization: spatial grid for fast dot lookup
+        let spatialGrid = null;
+        let spatialGridCellSize = 50; // world units per cell
+        function buildSpatialGrid() {
+            spatialGrid = new Map();
+            for (const msg of filteredMessages) {
+                const cellX = Math.floor(msg.x / spatialGridCellSize);
+                const cellY = Math.floor(msg.y / spatialGridCellSize);
+                const key = `${cellX},${cellY}`;
+                if (!spatialGrid.has(key)) {
+                    spatialGrid.set(key, []);
+                }
+                spatialGrid.get(key).push(msg);
+            }
+        }
+        let lastMouseX = 0;
+        let lastMouseY = 0;
+        let cursorX = 0;
+        let cursorY = 0;
+
+        // Generate star field (fixed screen positions)
+        const stars = [];
+        const starCount = 800;
+        for (let i = 0; i < starCount; i++) {
+            stars.push({
+                x: Math.random(),
+                y: Math.random(),
+                phase: Math.random() * Math.PI * 2,
+                speed: 0.3 + Math.random() * 0.4 // Random speed between 0.3-0.7 (2-5 sec cycles)
+            });
+        }
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // Animation loop with delta-time for frame-rate independent interpolation
+        function animate() {
+            const now = performance.now();
+            const deltaTime = Math.min((now - lastFrameTime) / 1000, 0.1); // Cap at 100ms to prevent huge jumps
+            lastFrameTime = now;
+
+            render(deltaTime);
+
+            // Update zoom level display
+            document.getElementById('zoomLevel').textContent = zoom.toFixed(2) + 'x';
+
+            // Update selected node tooltip position
+            const selectedNodeTooltip = document.getElementById('selectedNodeTooltip');
+            if (selectedMessageId) {
+                const selectedMsg = findMessageById(selectedMessageId);
+                if (selectedMsg) {
+                    const screenX = (selectedMsg.x + viewX) * zoom + canvas.width / 2;
+                    const screenY = (selectedMsg.y + viewY) * zoom + canvas.height / 2;
+
+                    const clusterInfo = selectedMsg.cluster_name && selectedMsg.cluster_name !== 'unclustered'
+                        ? ` [${selectedMsg.cluster_name}]` : '';
+                    selectedNodeTooltip.querySelector('.author').textContent = selectedMsg.author + clusterInfo;
+                    selectedNodeTooltip.querySelector('.content').textContent = selectedMsg.content.substring(0, 200) + (selectedMsg.content.length > 200 ? '...' : '');
+
+                    // Update Discord link
+                    const discordLink = document.getElementById('discordLinkBtn');
+                    if (GUILD_ID) {
+                        discordLink.href = `https://discord.com/channels/${GUILD_ID}/${selectedMsg.channel}/${selectedMsg.id}`;
+                        discordLink.style.display = 'block';
+                    } else {
+                        discordLink.style.display = 'none';
+                    }
+
+                    selectedNodeTooltip.style.display = 'block';
+                    selectedNodeTooltip.style.left = screenX + 15 + 'px';
+                    selectedNodeTooltip.style.top = screenY + 15 + 'px';
+                } else {
+                    selectedNodeTooltip.style.display = 'none';
+                }
+            } else {
+                selectedNodeTooltip.style.display = 'none';
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        // Copy URL button functionality
+        document.getElementById('copyUrlBtn').addEventListener('click', async () => {
+            if (selectedMessageId) {
+                const url = `${window.location.origin}${window.location.pathname}#${selectedMessageId}`;
+                try {
+                    await navigator.clipboard.writeText(url);
+                    // Brief visual feedback
+                    const btn = document.getElementById('copyUrlBtn');
+                    const originalText = btn.textContent;
+                    btn.textContent = 'OK';
+                    btn.style.color = '#0f0';
+                    setTimeout(() => {
+                        btn.textContent = originalText;
+                        btn.style.color = '#5bf';
+                    }, 1000);
+                } catch (err) {
+                    console.error('Failed to copy:', err);
+                }
+            }
+        });
+
+        // Search functionality
+        searchInput.addEventListener('input', e => {
+            searchTerm = e.target.value.toLowerCase();
+            updateFilter();
+        });
+
+        // Focus search on F or Ctrl+F
+        document.addEventListener('keydown', e => {
+            if ((e.key === 'f' || e.key === 'F') && !e.metaKey && !e.altKey && !e.shiftKey) {
+                if (e.ctrlKey || document.activeElement !== searchInput) {
+                    e.preventDefault();
+                    searchInput.focus();
+                    searchInput.select();
+                }
+            }
+        });
+
+        // Refresh Data button - redownload but keep old data visible
+        document.getElementById('refreshCache').addEventListener('click', () => {
+            localStorage.removeItem(CACHE_ETAG_KEY); // Force ETag mismatch to trigger redownload
+            location.reload(); // Reload to trigger background update with cache-first behavior
+        });
+
+        // Full Reset button - clear everything and reload
+        document.getElementById('clearCache').addEventListener('click', () => {
+            localStorage.removeItem(CACHE_KEY);
+            localStorage.removeItem(CACHE_ETAG_KEY);
+            location.reload();
+        });
+
+        // Collapsible info panel
+        const infoTitle = document.querySelector('#info h2');
+        const infoContent = document.getElementById('infoContent');
+        infoTitle.addEventListener('click', () => {
+            infoContent.classList.toggle('collapsed');
+            infoTitle.innerHTML = infoContent.classList.contains('collapsed')
+                ? 'Semantic Message Map &#9660;'
+                : 'Semantic Message Map &#9650;';
+        });
+
+        // Initialize filters from data
+        function initializeFilters() {
+            const authors = new Set();
+            const channels = new Set();
+            const clusterSet = new Set();
+
+            messages.forEach(msg => {
+                authors.add(msg.author);
+                channels.add(msg.channel);
+                // Build channel name mapping
+                if (msg.channel_name) {
+                    channelNames[msg.channel] = msg.channel_name;
+                }
+                if (msg.cluster !== -1) {
+                    clusterSet.add(msg.cluster);
+                }
+            });
+
+            // Create author checkboxes
+            const authorFilters = document.getElementById('authorFilters');
+            Array.from(authors).sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase())).forEach(author => {
+                const div = document.createElement('div');
+                div.className = 'filter-item';
+                const safeAuthor = author.replace(/"/g, '&quot;');
+                div.innerHTML = `
+                    <input type="checkbox" id="author-${safeAuthor}" value="${safeAuthor}" checked>
+                    <label for="author-${safeAuthor}">${author}</label>
+                `;
+                div.querySelector('input').addEventListener('change', e => {
+                    if (e.target.checked) {
+                        selectedAuthors.add(author);
+                    } else {
+                        selectedAuthors.delete(author);
+                    }
+                    updateFilter();
+                });
+                authorFilters.appendChild(div);
+                selectedAuthors.add(author);
+            });
+
+            // Author all/none toggles
+            document.getElementById('authorAll').addEventListener('click', () => {
+                document.querySelectorAll('#authorFilters input').forEach(cb => {
+                    cb.checked = true;
+                    selectedAuthors.add(cb.value);
+                });
+                updateFilter();
+            });
+            document.getElementById('authorNone').addEventListener('click', () => {
+                document.querySelectorAll('#authorFilters input').forEach(cb => {
+                    cb.checked = false;
+                });
+                selectedAuthors.clear();
+                updateFilter();
+            });
+            document.getElementById('authorInvert').addEventListener('click', () => {
+                document.querySelectorAll('#authorFilters input').forEach(cb => {
+                    cb.checked = !cb.checked;
+                    if (cb.checked) {
+                        selectedAuthors.add(cb.value);
+                    } else {
+                        selectedAuthors.delete(cb.value);
+                    }
+                });
+                updateFilter();
+            });
+
+            // Create channel checkboxes
+            const channelFilters = document.getElementById('channelFilters');
+            Array.from(channels).sort().forEach(channel => {
+                const displayName = channelNames[channel] || `Channel ${channel}`;
+                const div = document.createElement('div');
+                div.className = 'filter-item';
+                div.innerHTML = `
+                    <input type="checkbox" id="channel-${channel}" value="${channel}" checked>
+                    <label for="channel-${channel}">#${displayName}</label>
+                `;
+                div.querySelector('input').addEventListener('change', e => {
+                    if (e.target.checked) {
+                        selectedChannels.add(channel);
+                    } else {
+                        selectedChannels.delete(channel);
+                    }
+                    updateFilter();
+                });
+                channelFilters.appendChild(div);
+                selectedChannels.add(channel);
+            });
+
+            // Channel all/none/invert toggles
+            document.getElementById('channelAll').addEventListener('click', () => {
+                document.querySelectorAll('#channelFilters input').forEach(cb => {
+                    cb.checked = true;
+                    selectedChannels.add(cb.value);
+                });
+                updateFilter();
+            });
+            document.getElementById('channelNone').addEventListener('click', () => {
+                document.querySelectorAll('#channelFilters input').forEach(cb => {
+                    cb.checked = false;
+                });
+                selectedChannels.clear();
+                updateFilter();
+            });
+            document.getElementById('channelInvert').addEventListener('click', () => {
+                document.querySelectorAll('#channelFilters input').forEach(cb => {
+                    cb.checked = !cb.checked;
+                    if (cb.checked) {
+                        selectedChannels.add(cb.value);
+                    } else {
+                        selectedChannels.delete(cb.value);
+                    }
+                });
+                updateFilter();
+            });
+
+            // Create cluster checkboxes
+            const clusterFilters = document.getElementById('clusterFilters');
+            Array.from(clusterSet).sort((a, b) => a - b).forEach(clusterId => {
+                const clusterName = clusters[clusterId]?.name || `cluster-${clusterId}`;
+                const div = document.createElement('div');
+                div.className = 'filter-item';
+                div.innerHTML = `
+                    <input type="checkbox" id="cluster-${clusterId}" value="${clusterId}" checked>
+                    <label for="cluster-${clusterId}">${clusterName}</label>
+                `;
+                div.querySelector('input').addEventListener('change', e => {
+                    if (e.target.checked) {
+                        selectedClusters.add(parseInt(clusterId));
+                    } else {
+                        selectedClusters.delete(parseInt(clusterId));
+                    }
+                    updateFilter();
+                });
+                clusterFilters.appendChild(div);
+                selectedClusters.add(clusterId);
+            });
+
+            // Cluster all/none/invert toggles
+            document.getElementById('clusterAll').addEventListener('click', () => {
+                document.querySelectorAll('#clusterFilters input').forEach(cb => {
+                    cb.checked = true;
+                    selectedClusters.add(parseInt(cb.value));
+                });
+                updateFilter();
+            });
+            document.getElementById('clusterNone').addEventListener('click', () => {
+                document.querySelectorAll('#clusterFilters input').forEach(cb => {
+                    cb.checked = false;
+                });
+                selectedClusters.clear();
+                updateFilter();
+            });
+            document.getElementById('clusterInvert').addEventListener('click', () => {
+                document.querySelectorAll('#clusterFilters input').forEach(cb => {
+                    cb.checked = !cb.checked;
+                    if (cb.checked) {
+                        selectedClusters.add(parseInt(cb.value));
+                    } else {
+                        selectedClusters.delete(parseInt(cb.value));
+                    }
+                });
+                updateFilter();
+            });
+
+            // Visual settings toggles
+            document.getElementById('bloomToggle').addEventListener('change', e => {
+                bloomEnabled = e.target.checked;
+            });
+            document.getElementById('clusterPolygonsToggle').addEventListener('change', e => {
+                clusterPolygonsEnabled = e.target.checked;
+            });
+            document.getElementById('clusterNamesToggle').addEventListener('change', e => {
+                clusterNamesEnabled = e.target.checked;
+            });
+            document.getElementById('cursorTracersToggle').addEventListener('change', e => {
+                cursorTracersEnabled = e.target.checked;
+            });
+            document.getElementById('starsToggle').addEventListener('change', e => {
+                starsEnabled = e.target.checked;
+            });
+            // Initialize performance mode from checkbox state (browser may restore it)
+            const perfToggle = document.getElementById('performanceModeToggle');
+            performanceModeEnabled = perfToggle.checked;
+
+            perfToggle.addEventListener('change', e => {
+                performanceModeEnabled = e.target.checked;
+                console.log('Performance mode toggled:', performanceModeEnabled);
+                if (!e.target.checked) {
+                    // Reset when disabling
+                    performanceHiddenNodes.clear();
+                    nodeCullRatio = 0;
+                }
+            });
+
+            // Track window focus for performance mode
+            document.addEventListener('visibilitychange', () => {
+                isWindowFocused = !document.hidden;
+            });
+
+            // Make filter sections collapsible
+            document.querySelectorAll('.filter-section h3').forEach(header => {
+                header.addEventListener('click', () => {
+                    const content = header.nextElementSibling;
+                    const arrow = header.querySelector('span:last-child');
+                    content.classList.toggle('collapsed');
+                    arrow.innerHTML = content.classList.contains('collapsed') ? '&#9660;' : '&#9650;';
+                });
+            });
+        }
+
+        function updateFilter() {
+            filteredMessages = messages.filter(m => {
+                // Author filter
+                if (selectedAuthors.size > 0 && !selectedAuthors.has(m.author)) {
+                    return false;
+                }
+                // Channel filter
+                if (selectedChannels.size > 0 && !selectedChannels.has(m.channel)) {
+                    return false;
+                }
+                // Cluster filter (only filter clustered messages)
+                if (selectedClusters.size > 0 && m.cluster !== -1 && !selectedClusters.has(m.cluster)) {
+                    return false;
+                }
+                // Search filter
+                if (searchTerm !== '') {
+                    return m.content.toLowerCase().includes(searchTerm) ||
+                           m.author.toLowerCase().includes(searchTerm);
+                }
+                return true;
+            });
+            // Rebuild spatial grid after filter change
+            buildSpatialGrid();
+        }
+
+        // Load data with caching
+        const CACHE_KEY = 'discord-viz-data';
+        const CACHE_ETAG_KEY = 'discord-viz-etag';
+
+        async function loadData() {
+            const cached = localStorage.getItem(CACHE_KEY);
+
+            // Use cache immediately if available
+            if (cached) {
+                console.log('Loading from cache...');
+                messages = JSON.parse(cached);
+                filteredMessages = messages;
+                loading.style.display = 'none';
+                initializeView();
+                return;
+            }
+
+            // No cache, fetch fresh
+            try {
+                console.log('No cache, fetching fresh data...');
+                const progressBar = document.getElementById('progressBar');
+                const progressFill = document.getElementById('progressFill');
+                const loadingText = document.getElementById('loadingText');
+
+                progressBar.style.display = 'block';
+
+                const fullResponse = await fetch('viz_data.json');
+                const contentLength = fullResponse.headers.get('Content-Length');
+                const total = parseInt(contentLength, 10);
+
+                let loaded = 0;
+                const reader = fullResponse.body.getReader();
+                const chunks = [];
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    chunks.push(value);
+                    loaded += value.length;
+
+                    if (total) {
+                        const progress = (loaded / total) * 100;
+                        const loadedKB = (loaded / 1024).toFixed(1);
+                        const totalKB = (total / 1024).toFixed(1);
+                        progressFill.style.width = progress + '%';
+                        loadingText.textContent = `Loading... ${Math.round(progress)}% (${loadedKB}/${totalKB} KB)`;
+                    }
+                }
+
+                const blob = new Blob(chunks);
+                const text = await blob.text();
+                const data = JSON.parse(text);
+
+                messages = data;
+                filteredMessages = messages;
+                loading.style.display = 'none';
+
+                // Cache the data
+                try {
+                    localStorage.setItem(CACHE_KEY, text);
+                    console.log('Data cached');
+                } catch (e) {
+                    console.warn('Failed to cache data:', e);
+                }
+
+                initializeView();
+            } catch (err) {
+                console.error('Failed to load data:', err);
+                loading.innerHTML = `<div style="color: #f55; padding: 20px; text-align: center;">
+                    Failed to load data<br>
+                    <span style="font-size: 12px; color: #999;">${err.message}</span><br>
+                    <button onclick="location.reload()" style="margin-top: 10px; padding: 8px 16px; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer;">Retry</button>
+                </div>`;
+            }
+        }
+
+        // Compute convex hull using Graham scan
+        function convexHull(points) {
+            if (points.length < 3) return points;
+
+            // Find bottom-most point (or left most in case of tie)
+            let start = 0;
+            for (let i = 1; i < points.length; i++) {
+                if (points[i].y < points[start].y ||
+                    (points[i].y === points[start].y && points[i].x < points[start].x)) {
+                    start = i;
+                }
+            }
+
+            // Swap start to beginning
+            [points[0], points[start]] = [points[start], points[0]];
+            const pivot = points[0];
+
+            // Sort by polar angle
+            const sorted = points.slice(1).sort((a, b) => {
+                const angleA = Math.atan2(a.y - pivot.y, a.x - pivot.x);
+                const angleB = Math.atan2(b.y - pivot.y, b.x - pivot.x);
+                if (angleA !== angleB) return angleA - angleB;
+                // If same angle, sort by distance
+                const distA = (a.x - pivot.x) ** 2 + (a.y - pivot.y) ** 2;
+                const distB = (b.x - pivot.x) ** 2 + (b.y - pivot.y) ** 2;
+                return distA - distB;
+            });
+
+            const hull = [pivot];
+
+            for (const p of sorted) {
+                while (hull.length > 1) {
+                    const a = hull[hull.length - 2];
+                    const b = hull[hull.length - 1];
+                    // Cross product to check turn direction
+                    const cross = (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x);
+                    if (cross <= 0) hull.pop();
+                    else break;
+                }
+                hull.push(p);
+            }
+
+            return hull;
+        }
+
+        // Calculate clusters from message data
+        function calculateClusters() {
+            clusters = {};
+
+            for (const msg of messages) {
+                const clusterId = msg.cluster;
+                const clusterName = msg.cluster_name;
+
+                // Skip unclustered messages
+                if (clusterId === -1 || clusterName === 'unclustered') continue;
+
+                if (!clusters[clusterId]) {
+                    clusters[clusterId] = {
+                        name: clusterName,
+                        points: [],
+                        hull: [],
+                        center: { x: 0, y: 0 },
+                        color: hashCode(clusterName) % 360
+                    };
+                }
+
+                clusters[clusterId].points.push({ x: msg.x, y: msg.y });
+            }
+
+            // Calculate hull, center and radius for each cluster
+            for (const id in clusters) {
+                const cluster = clusters[id];
+                if (cluster.points.length >= 3) {
+                    // Calculate convex hull
+                    cluster.hull = convexHull([...cluster.points]);
+
+                    // Calculate center
+                    const sumX = cluster.points.reduce((s, p) => s + p.x, 0);
+                    const sumY = cluster.points.reduce((s, p) => s + p.y, 0);
+                    cluster.center = {
+                        x: sumX / cluster.points.length,
+                        y: sumY / cluster.points.length
+                    };
+
+                    // Pre-calculate radius for visibility culling
+                    cluster.radius = Math.max(...cluster.points.map(p => {
+                        const dx = p.x - cluster.center.x;
+                        const dy = p.y - cluster.center.y;
+                        return Math.sqrt(dx*dx + dy*dy);
+                    }));
+                }
+            }
+
+            console.log(`Calculated ${Object.keys(clusters).length} clusters`);
+        }
+
+        function initializeView() {
+                // Extract guild ID from first message
+                if (messages.length > 0 && messages[0].guild_id) {
+                    GUILD_ID = messages[0].guild_id;
+                    console.log('Guild ID:', GUILD_ID);
+                }
+
+                // Update message count display
+                document.getElementById('messageCount').textContent =
+                    `${messages.length.toLocaleString()} messages visualized by semantic similarity`;
+
+                // Calculate cluster regions first (needed for filter labels)
+                calculateClusters();
+
+                // Initialize filters
+                initializeFilters();
+
+                // Build spatial grid for fast lookups
+                buildSpatialGrid();
+
+                // Center view on data and calculate optimal zoom
+                const centerX = messages.reduce((sum, m) => sum + m.x, 0) / messages.length;
+                const centerY = messages.reduce((sum, m) => sum + m.y, 0) / messages.length;
+
+                // Find data bounds
+                const minX = Math.min(...messages.map(m => m.x));
+                const maxX = Math.max(...messages.map(m => m.x));
+                const minY = Math.min(...messages.map(m => m.y));
+                const maxY = Math.max(...messages.map(m => m.y));
+
+                const dataWidth = maxX - minX;
+                const dataHeight = maxY - minY;
+
+                // Calculate zoom to fit 70% of smallest viewport dimension
+                const targetFill = 0.7;
+                const zoomX = (canvas.width * targetFill) / dataWidth;
+                const zoomY = (canvas.height * targetFill) / dataHeight;
+                zoom = Math.min(zoomX, zoomY);
+                targetZoom = zoom;
+
+                viewX = -centerX;
+                viewY = -centerY;
+                targetViewX = viewX;
+                targetViewY = viewY;
+
+                // Check for URL hash and zoom to that message if present
+                if (window.location.hash) {
+                    const messageId = window.location.hash.substring(1); // Remove '#'
+                    console.log('Looking for message ID:', messageId);
+                    const targetMsg = findMessageById(messageId);
+                    console.log('Found message:', targetMsg);
+                    if (targetMsg) {
+                        console.log('Zooming to message at', targetMsg.x, targetMsg.y);
+                        // Set initial position at message location for smooth animation
+                        viewX = -targetMsg.x;
+                        viewY = -targetMsg.y;
+                        zoom = 1; // Start zoomed out
+                        // Animate to zoomed view
+                        zoomToMessage(targetMsg);
+                    } else {
+                        console.warn('Message not found with ID:', messageId);
+                    }
+                }
+
+                animate(); // Start animation loop
+        }
+
+        loadData();
+
+        // Pan
+        canvas.addEventListener('mousedown', e => {
+            isDragging = true;
+            dragMoved = false;
+            lastMouseX = e.clientX;
+            lastMouseY = e.clientY;
+            canvas.classList.add('dragging');
+            // Blur search input when interacting with canvas
+            if (document.activeElement === searchInput) {
+                searchInput.blur();
+            }
+        });
+
+        canvas.addEventListener('mousemove', e => {
+            cursorX = e.clientX;
+            cursorY = e.clientY;
+
+            if (isDragging) {
+                const dx = e.clientX - lastMouseX;
+                const dy = e.clientY - lastMouseY;
+
+                // Mark as moved if dragged more than 3px
+                if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
+                    dragMoved = true;
+                }
+
+                viewX += dx / zoom;
+                viewY += dy / zoom;
+                targetViewX = viewX;
+                targetViewY = viewY;
+
+                // Track velocity for inertia
+                velocityX = dx / zoom;
+                velocityY = dy / zoom;
+
+                lastMouseX = e.clientX;
+                lastMouseY = e.clientY;
+            } else {
+                // Tooltip (skip if hovering over selected node)
+                const msg = getMessageAtMouse(e.clientX, e.clientY);
+                if (msg && !(selectedMessageId && String(msg.id) === String(selectedMessageId))) {
+                    const clusterInfo = msg.cluster_name && msg.cluster_name !== 'unclustered'
+                        ? ` [${msg.cluster_name}]` : '';
+                    tooltip.querySelector('.author').textContent = msg.author + clusterInfo;
+                    tooltip.querySelector('.content').textContent = msg.content.substring(0, 200) + (msg.content.length > 200 ? '...' : '');
+                    tooltip.style.display = 'block';
+                    tooltip.style.left = e.clientX + 15 + 'px';
+                    tooltip.style.top = e.clientY + 15 + 'px';
+                } else {
+                    tooltip.style.display = 'none';
+                }
+            }
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            isDragging = false;
+            canvas.classList.remove('dragging');
+        });
+
+        // Click handler for URL anchor support
+        canvas.addEventListener('click', e => {
+            // Only select if click didn't involve dragging
+            if (dragMoved) return;
+
+            const msg = getMessageAtMouse(e.clientX, e.clientY);
+            if (msg && msg.id) {
+                // Update URL hash with message ID
+                window.history.pushState(null, '', `#${msg.id}`);
+                // Just select the node without moving view or zooming
+                selectedMessageId = msg.id;
+                // Instantly hide mouseover tooltip when selecting a node
+                tooltip.style.display = 'none';
+            } else {
+                // Clicking empty space unselects the node (keep URL hash)
+                selectedMessageId = null;
+            }
+        });
+
+        canvas.addEventListener('mouseleave', () => {
+            isDragging = false;
+            canvas.classList.remove('dragging');
+            tooltip.style.display = 'none';
+        });
+
+        // Zoom with smooth interpolation
+        canvas.addEventListener('wheel', e => {
+            e.preventDefault();
+            const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
+            const mouseX = e.clientX;
+            const mouseY = e.clientY;
+
+            // World position under mouse
+            const worldX = (mouseX - canvas.width / 2) / zoom - viewX;
+            const worldY = (mouseY - canvas.height / 2) / zoom - viewY;
+
+            targetZoom *= zoomFactor;
+            targetZoom = Math.max(0.5, targetZoom);
+
+            // Calculate target view position to keep world position under mouse
+            targetViewX = (mouseX - canvas.width / 2) / targetZoom - worldX;
+            targetViewY = (mouseY - canvas.height / 2) / targetZoom - worldY;
+        });
+
+        // Touch events for mobile
+        let touchStartDist = 0;
+        let touchStartZoom = 1;
+        let touchStartX = 0;
+        let touchStartY = 0;
+        let touchMoved = false;
+        let wasMultiTouch = false;
+
+        canvas.addEventListener('touchstart', e => {
+            e.preventDefault();
+            // Blur search input when interacting with canvas
+            if (document.activeElement === searchInput) {
+                searchInput.blur();
+            }
+            if (e.touches.length === 1) {
+                isDragging = true;
+                lastMouseX = e.touches[0].clientX;
+                lastMouseY = e.touches[0].clientY;
+                touchStartX = e.touches[0].clientX;
+                touchStartY = e.touches[0].clientY;
+                touchMoved = false;
+                wasMultiTouch = false;
+            } else if (e.touches.length === 2) {
+                isDragging = false;
+                wasMultiTouch = true;
+                const dx = e.touches[0].clientX - e.touches[1].clientX;
+                const dy = e.touches[0].clientY - e.touches[1].clientY;
+                touchStartDist = Math.sqrt(dx * dx + dy * dy);
+                touchStartZoom = zoom;
+            }
+        });
+
+        canvas.addEventListener('touchmove', e => {
+            e.preventDefault();
+            if (e.touches.length === 1 && isDragging) {
+                const dx = e.touches[0].clientX - lastMouseX;
+                const dy = e.touches[0].clientY - lastMouseY;
+
+                // Track if touch moved significantly (more than 5px)
+                const totalDx = e.touches[0].clientX - touchStartX;
+                const totalDy = e.touches[0].clientY - touchStartY;
+                if (Math.sqrt(totalDx * totalDx + totalDy * totalDy) > 5) {
+                    touchMoved = true;
+                }
+
+                viewX += dx / zoom;
+                viewY += dy / zoom;
+                targetViewX = viewX;
+                targetViewY = viewY;
+
+                // Track velocity for inertia
+                velocityX = dx / zoom;
+                velocityY = dy / zoom;
+
+                lastMouseX = e.touches[0].clientX;
+                lastMouseY = e.touches[0].clientY;
+            } else if (e.touches.length === 2) {
+                const dx = e.touches[0].clientX - e.touches[1].clientX;
+                const dy = e.touches[0].clientY - e.touches[1].clientY;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                const zoomFactor = dist / touchStartDist;
+
+                const centerX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+                const centerY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+
+                const worldX = (centerX - canvas.width / 2) / zoom - viewX;
+                const worldY = (centerY - canvas.height / 2) / zoom - viewY;
+
+                targetZoom = touchStartZoom * zoomFactor;
+                targetZoom = Math.max(0.5, targetZoom);
+
+                targetViewX = (centerX - canvas.width / 2) / targetZoom - worldX;
+                targetViewY = (centerY - canvas.height / 2) / targetZoom - worldY;
+            }
+        });
+
+        canvas.addEventListener('touchend', e => {
+            e.preventDefault();
+            if (e.touches.length === 0) {
+                // If touch didn't move significantly and wasn't a multi-touch gesture, treat as a tap
+                if (!touchMoved && !wasMultiTouch) {
+                    // Get canvas-relative coordinates
+                    const rect = canvas.getBoundingClientRect();
+                    const canvasX = touchStartX - rect.left;
+                    const canvasY = touchStartY - rect.top;
+                    const msg = getMessageAtMouse(canvasX, canvasY, 50);
+                    if (msg && msg.id) {
+                        // Update URL hash with message ID
+                        window.history.pushState(null, '', `#${msg.id}`);
+                        // Center on the message without changing zoom
+                        targetViewX = -msg.x;
+                        targetViewY = -msg.y;
+                        selectedMessageId = msg.id;
+                    } else {
+                        // Tapping empty space unselects the node
+                        selectedMessageId = null;
+                    }
+                }
+                isDragging = false;
+                wasMultiTouch = false;
+            }
+        });
+
+        function worldToScreen(x, y) {
+            return {
+                x: (x + viewX) * zoom + canvas.width / 2,
+                y: (y + viewY) * zoom + canvas.height / 2
+            };
+        }
+
+        function screenToWorld(x, y) {
+            return {
+                x: (x - canvas.width / 2) / zoom - viewX,
+                y: (y - canvas.height / 2) / zoom - viewY
+            };
+        }
+
+        function getMessageAtMouse(mouseX, mouseY, radius = 30) {
+            let nearestMsg = null;
+            let nearestDist = Infinity;
+
+            for (const msg of filteredMessages) {
+                // Skip nodes hidden by performance mode
+                if (performanceHiddenNodes.has(msg.id)) continue;
+
+                const screen = worldToScreen(msg.x, msg.y);
+                const dx = screen.x - mouseX;
+                const dy = screen.y - mouseY;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+
+                if (dist < radius && dist < nearestDist) {
+                    nearestDist = dist;
+                    nearestMsg = msg;
+                }
+            }
+
+            return nearestMsg;
+        }
+
+        // Find message by ID for URL anchor support
+        function findMessageById(id) {
+            return messages.find(msg => String(msg.id) === String(id));
+        }
+
+        // Zoom to center a specific message in the viewport
+        function zoomToMessage(msg) {
+            if (!msg) return;
+            // Center on the message
+            targetViewX = -msg.x;
+            targetViewY = -msg.y;
+            // Zoom to 150x for detail
+            targetZoom = 150;
+            // Mark this message as selected
+            selectedMessageId = msg.id;
+        }
+
+        function render(deltaTime = 0.016) {
+            // Update current time
+            currentTime += deltaTime;
+
+            // FPS tracking (always track for debug display)
+            frameTimes.push(deltaTime);
+            if (frameTimes.length > 30) frameTimes.shift(); // Keep last 30 frames
+            const avgFrameTime = frameTimes.reduce((a, b) => a + b, 0) / frameTimes.length;
+            currentFPS = 1 / avgFrameTime;
+
+            // Apply inertia if not dragging
+            if (!isDragging && (Math.abs(velocityX) > 0.01 || Math.abs(velocityY) > 0.01)) {
+                viewX += velocityX;
+                viewY += velocityY;
+                targetViewX = viewX;
+                targetViewY = viewY;
+                velocityX *= INERTIA_DECAY;
+                velocityY *= INERTIA_DECAY;
+            } else if (!isDragging) {
+                velocityX = 0;
+                velocityY = 0;
+            }
+
+            // Time-based smooth zoom and view interpolation (frame-rate independent)
+            // Using exponential decay: lerp factor = 1 - e^(-speed * dt)
+            const lerpFactor = 1 - Math.exp(-LERP_SPEED * deltaTime);
+
+            if (Math.abs(targetZoom - zoom) > 0.001 || Math.abs(targetViewX - viewX) > 0.001 || Math.abs(targetViewY - viewY) > 0.001) {
+                zoom += (targetZoom - zoom) * lerpFactor;
+                viewX += (targetViewX - viewX) * lerpFactor;
+                viewY += (targetViewY - viewY) * lerpFactor;
+            } else {
+                zoom = targetZoom;
+                viewX = targetViewX;
+                viewY = targetViewY;
+            }
+
+            ctx.fillStyle = '#0a0a0a';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw twinkling stars (fixed screen positions)
+            if (starsEnabled) {
+                const time = Date.now() / 1000;
+                for (const star of stars) {
+                    const opacity = (Math.sin(time * star.speed + star.phase) * 0.5 + 0.5) * 0.8;
+                    ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`;
+                    ctx.fillRect(star.x * canvas.width, star.y * canvas.height, 1, 1);
+                }
+            }
+
+            // Pre-calculate viewport bounds in world coordinates for culling
+            const viewportLeft = -viewX - canvas.width / (2 * zoom) - 20/zoom;
+            const viewportRight = -viewX + canvas.width / (2 * zoom) + 20/zoom;
+            const viewportTop = -viewY - canvas.height / (2 * zoom) - 20/zoom;
+            const viewportBottom = -viewY + canvas.height / (2 * zoom) + 20/zoom;
+
+            // Pre-calculate transform constants for this frame
+            const halfWidth = canvas.width / 2;
+            const halfHeight = canvas.height / 2;
+
+            // Draw cluster regions (under everything else)
+            for (const id in clusters) {
+                const cluster = clusters[id];
+                if (cluster.hull.length < 3) continue;
+
+                // Fast bounding box check using pre-calculated center and radius
+                const cx = cluster.center.x;
+                const cy = cluster.center.y;
+                const r = cluster.radius;
+
+                // Check if cluster is off-screen
+                const isOffScreen = cx + r < viewportLeft || cx - r > viewportRight ||
+                    cy + r < viewportTop || cy - r > viewportBottom;
+
+                // Always update label position, but hide if off-screen
+                const screenCenterX = (cx + viewX) * zoom + halfWidth;
+                const screenCenterY = (cy + viewY) * zoom + halfHeight;
+                const screenRadius = cluster.radius * zoom;
+                let label = clusterLabels.get(id);
+
+                if (clusterNamesEnabled) {
+                    if (isOffScreen || screenRadius <= 20) {
+                        // Hide label when cluster is off-screen or too small
+                        if (label) {
+                            label.style.opacity = '0';
+                        }
+                        if (isOffScreen) {
+                            continue; // Skip drawing hull if off-screen
+                        }
+                    } else {
+                        // Create label if it doesn't exist
+                        if (!label) {
+                            label = document.createElement('div');
+                            label.className = 'cluster-label';
+                            label.textContent = cluster.name;
+                            labelOverlay.appendChild(label);
+                            clusterLabels.set(id, label);
+                        }
+
+                        // Update label position and style
+                        const labelSize = Math.max(10, Math.min(16, 12 * Math.sqrt(zoom)));
+                        label.style.fontSize = `${labelSize}px`;
+                        label.style.color = `hsla(${cluster.color}, 60%, 70%, 0.85)`;
+                        label.style.left = `${screenCenterX}px`;
+                        label.style.top = `${screenCenterY}px`;
+                        label.style.transform = 'translate(-50%, -50%)';
+                        label.style.opacity = '1';
+                    }
+                } else {
+                    // Hide label when toggle is off
+                    if (label) {
+                        label.style.opacity = '0';
+                    }
+                }
+
+                if (!clusterNamesEnabled && isOffScreen) {
+                    continue; // Skip drawing hull if off-screen and names disabled
+                }
+
+                // Skip drawing hull if off-screen or polygons disabled
+                if (isOffScreen || !clusterPolygonsEnabled) continue;
+
+                // Draw filled hull with low opacity
+                ctx.beginPath();
+                const h0 = cluster.hull[0];
+                ctx.moveTo((h0.x + viewX) * zoom + halfWidth, (h0.y + viewY) * zoom + halfHeight);
+
+                for (let i = 1; i < cluster.hull.length; i++) {
+                    const p = cluster.hull[i];
+                    ctx.lineTo((p.x + viewX) * zoom + halfWidth, (p.y + viewY) * zoom + halfHeight);
+                }
+                ctx.closePath();
+
+                // Fill with cluster color at low opacity
+                ctx.fillStyle = `hsla(${cluster.color}, 50%, 40%, 0.12)`;
+                ctx.fill();
+
+                // Draw subtle border
+                ctx.strokeStyle = `hsla(${cluster.color}, 50%, 50%, 0.25)`;
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            }
+
+            // Scale dot size with zoom - very gradual, cap at 8px
+            const baseSize = 2;
+            const zoomScale = zoom > 10 ? Math.log(zoom - 9) * 0.5 : 0;
+            const pointSize = Math.min(8, baseSize + zoomScale);
+            const lineRadius = 150;
+
+            // Draw lines from cursor to nearby dots using spatial grid
+            const glowNodes = new Map(); // Track nodes with tracers for glow effect
+            if (cursorTracersEnabled && cursorX > 0 && cursorY > 0) {
+                // Convert cursor to world coordinates
+                const cursorWorldX = (cursorX - halfWidth) / zoom - viewX;
+                const cursorWorldY = (cursorY - halfHeight) / zoom - viewY;
+                const worldRadius = lineRadius / zoom;
+
+                // Find nearby cells
+                const minCellX = Math.floor((cursorWorldX - worldRadius) / spatialGridCellSize);
+                const maxCellX = Math.floor((cursorWorldX + worldRadius) / spatialGridCellSize);
+                const minCellY = Math.floor((cursorWorldY - worldRadius) / spatialGridCellSize);
+                const maxCellY = Math.floor((cursorWorldY + worldRadius) / spatialGridCellSize);
+
+                const nearby = [];
+                for (let cellX = minCellX; cellX <= maxCellX; cellX++) {
+                    for (let cellY = minCellY; cellY <= maxCellY; cellY++) {
+                        const key = `${cellX},${cellY}`;
+                        const cell = spatialGrid.get(key);
+                        if (!cell) continue;
+
+                        for (const msg of cell) {
+                            const screenX = (msg.x + viewX) * zoom + halfWidth;
+                            const screenY = (msg.y + viewY) * zoom + halfHeight;
+
+                            const dx = screenX - cursorX;
+                            const dy = screenY - cursorY;
+                            const dist = Math.sqrt(dx * dx + dy * dy);
+
+                            if (dist < lineRadius) {
+                                nearby.push({ msg, screenX, screenY, dist });
+                            }
+                        }
+                    }
+                }
+
+                // Sort by distance and take closest 26
+                nearby.sort((a, b) => a.dist - b.dist);
+                const closest = nearby.slice(0, 26);
+
+                // Draw lines to closest dots with tiered opacity
+                for (let i = 0; i < closest.length; i++) {
+                    const { msg, screenX, screenY, dist } = closest[i];
+
+                    // Skip nodes hidden by performance mode
+                    if (performanceHiddenNodes.has(msg.id)) continue;
+
+                    const normalized = dist / lineRadius;
+
+                    let baseOpacity;
+                    if (i < 10) {
+                        baseOpacity = Math.pow(1 - normalized, 3) * 0.7 + 0.3 * (1 - normalized);
+                    } else if (i < 20) {
+                        baseOpacity = (Math.pow(1 - normalized, 3) * 0.4 + 0.15 * (1 - normalized)) * 0.6;
+                    } else {
+                        baseOpacity = Math.pow(1 - normalized, 4) * 0.15;
+                    }
+
+                    const hue = getCachedHue(msg.author);
+                    ctx.strokeStyle = `hsla(${hue}, 70%, 60%, ${baseOpacity})`;
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.moveTo(cursorX, cursorY);
+                    ctx.lineTo(screenX, screenY);
+                    ctx.stroke();
+
+                    // Store glow strength (1 at cursor, 0 at lineRadius distance)
+                    const glowStrength = 1 - normalized;
+                    glowNodes.set(msg.id, glowStrength);
+                }
+            }
+
+            // Draw special tracer line to selected node with distance fade
+            if (cursorTracersEnabled && selectedMessageId && cursorX > 0 && cursorY > 0) {
+                const selectedMsg = findMessageById(selectedMessageId);
+                if (selectedMsg) {
+                    const screenX = (selectedMsg.x + viewX) * zoom + halfWidth;
+                    const screenY = (selectedMsg.y + viewY) * zoom + halfHeight;
+
+                    // Calculate distance from cursor to selected node
+                    const dx = screenX - cursorX;
+                    const dy = screenY - cursorY;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+
+                    // Fade out at 30% of screen width (60% of previous range)
+                    const maxDist = canvas.width * 0.3;
+                    const normalized = Math.min(dist / maxDist, 1);
+
+                    // Fade opacity with distance
+                    const opacity = Math.pow(1 - normalized, 2) * 0.7;
+
+                    if (opacity > 0.05) {
+                        // Draw bright yellow line to selected node
+                        ctx.strokeStyle = `rgba(255, 255, 0, ${opacity})`;
+                        ctx.lineWidth = 2;
+                        ctx.beginPath();
+                        ctx.moveTo(cursorX, cursorY);
+                        ctx.lineTo(screenX, screenY);
+                        ctx.stroke();
+                    }
+                }
+            }
+
+            // Draw tracers from selected node to nearby nodes
+            if (cursorTracersEnabled && selectedMessageId) {
+                const selectedMsg = findMessageById(selectedMessageId);
+                if (selectedMsg) {
+                    const selectedScreenX = (selectedMsg.x + viewX) * zoom + halfWidth;
+                    const selectedScreenY = (selectedMsg.y + viewY) * zoom + halfHeight;
+
+                    // Convert selected node to world coordinates
+                    const selectedWorldX = selectedMsg.x;
+                    const selectedWorldY = selectedMsg.y;
+                    const worldRadius = lineRadius / zoom;
+
+                    // Find nearby cells
+                    const minCellX = Math.floor((selectedWorldX - worldRadius) / spatialGridCellSize);
+                    const maxCellX = Math.floor((selectedWorldX + worldRadius) / spatialGridCellSize);
+                    const minCellY = Math.floor((selectedWorldY - worldRadius) / spatialGridCellSize);
+                    const maxCellY = Math.floor((selectedWorldY + worldRadius) / spatialGridCellSize);
+
+                    const nearby = [];
+                    for (let cellX = minCellX; cellX <= maxCellX; cellX++) {
+                        for (let cellY = minCellY; cellY <= maxCellY; cellY++) {
+                            const key = `${cellX},${cellY}`;
+                            const cell = spatialGrid.get(key);
+                            if (!cell) continue;
+
+                            for (const msg of cell) {
+                                // Skip the selected node itself
+                                if (String(msg.id) === String(selectedMessageId)) continue;
+
+                                // Skip nodes hidden by performance mode (early check before calculations)
+                                if (performanceHiddenNodes.has(msg.id)) continue;
+
+                                const screenX = (msg.x + viewX) * zoom + halfWidth;
+                                const screenY = (msg.y + viewY) * zoom + halfHeight;
+
+                                const dx = screenX - selectedScreenX;
+                                const dy = screenY - selectedScreenY;
+                                const dist = Math.sqrt(dx * dx + dy * dy);
+
+                                if (dist < lineRadius) {
+                                    nearby.push({ msg, screenX, screenY, dist });
+                                }
+                            }
+                        }
+                    }
+
+                    // Sort by distance and take closest 26
+                    nearby.sort((a, b) => a.dist - b.dist);
+                    const closest = nearby.slice(0, 26);
+
+                    // Draw yellow lines to closest dots with tiered opacity (max 75%)
+                    for (let i = 0; i < closest.length; i++) {
+                        const { msg, screenX, screenY, dist } = closest[i];
+
+                        // Skip nodes hidden by performance mode
+                        if (performanceHiddenNodes.has(msg.id)) continue;
+
+                        const normalized = dist / lineRadius;
+
+                        let baseOpacity;
+                        if (i < 10) {
+                            baseOpacity = Math.pow(1 - normalized, 3) * 0.7 + 0.3 * (1 - normalized);
+                        } else if (i < 20) {
+                            baseOpacity = (Math.pow(1 - normalized, 3) * 0.4 + 0.15 * (1 - normalized)) * 0.6;
+                        } else {
+                            baseOpacity = Math.pow(1 - normalized, 4) * 0.15;
+                        }
+
+                        // Cap at 75% opacity and use yellow color
+                        const opacity = baseOpacity * 0.75;
+                        ctx.strokeStyle = `rgba(255, 255, 0, ${opacity})`;
+                        ctx.lineWidth = 1;
+                        ctx.beginPath();
+                        ctx.moveTo(selectedScreenX, selectedScreenY);
+                        ctx.lineTo(screenX, screenY);
+                        ctx.stroke();
+                    }
+                }
+            }
+
+            // Performance mode: clear hidden set each frame for re-evaluation
+            if (performanceModeEnabled) {
+                performanceHiddenNodes.clear();
+            }
+
+            // Draw dots with viewport culling
+            let visibleNodeCount = 0;
+            let viewportNodeCount = 0; // Count before performance culling
+            for (const msg of filteredMessages) {
+                // Viewport culling in world coords
+                if (msg.x < viewportLeft || msg.x > viewportRight ||
+                    msg.y < viewportTop || msg.y > viewportBottom) {
+                    continue;
+                }
+
+                viewportNodeCount++; // Count nodes in viewport before culling
+
+                const screenX = (msg.x + viewX) * zoom + halfWidth;
+                const screenY = (msg.y + viewY) * zoom + halfHeight;
+
+                // Check if this is the selected message
+                const isSelected = selectedMessageId && String(msg.id) === String(selectedMessageId);
+
+                // Performance mode: determine if node should be hidden and animate opacity
+                let nodeOpacity = 1.0;
+                if (performanceModeEnabled && !isSelected) {
+                    // At zoom >= 550x, disable culling but keep fade-in delays
+                    const disableCulling = zoom >= 550;
+
+                    // Use message ID as seed for consistent culling
+                    const hash = msg.id % 100;
+                    const shouldBeHidden = !disableCulling && nodeCullRatio > 0 && hash < nodeCullRatio * 100;
+
+                    // Get or initialize opacity
+                    if (!nodeOpacities.has(msg.id)) {
+                        nodeOpacities.set(msg.id, 1.0);
+                    }
+
+                    // Animate opacity toward target (0 if hidden, 1 if visible)
+                    const currentOpacity = nodeOpacities.get(msg.id);
+                    const targetOpacity = shouldBeHidden ? 0 : 1;
+
+                    // Assign random fade-in delay (0-2.75s normally, 0-0.5s at zoom >= 550x)
+                    if (targetOpacity > currentOpacity && currentOpacity < 0.1) {
+                        if (!nodeFadeInDelays.has(msg.id)) {
+                            // Use faster delays at high zoom levels
+                            const delayRange = disableCulling ? 0.5 : 2.75;
+                            const randomDelay = Math.random() * delayRange;
+                            nodeFadeInDelays.set(msg.id, currentTime + randomDelay);
+                            if (disableCulling) {
+                                nodeFastDelayApplied.add(msg.id);
+                            }
+                        } else if (disableCulling && !nodeFastDelayApplied.has(msg.id)) {
+                            // Override existing delay with faster one if zoomed in (only once)
+                            const existingDelay = nodeFadeInDelays.get(msg.id);
+                            if (existingDelay > currentTime + 0.5) {
+                                const randomDelay = Math.random() * 0.5;
+                                nodeFadeInDelays.set(msg.id, currentTime + randomDelay);
+                                nodeFastDelayApplied.add(msg.id);
+                            }
+                        }
+                    } else if (targetOpacity === 0) {
+                        // Clear delay when hiding
+                        nodeFadeInDelays.delete(msg.id);
+                        nodeFastDelayApplied.delete(msg.id); // Clear override flag when hiding
+                    }
+
+                    const opacityChange = FADE_SPEED * deltaTime;
+
+                    // Fade out immediately, fade in only after delay
+                    if (currentOpacity > targetOpacity) {
+                        // Fading out - no delay
+                        nodeOpacity = Math.max(targetOpacity, currentOpacity - opacityChange);
+                    } else if (currentOpacity < targetOpacity) {
+                        // Fading in - check if delay has passed
+                        const fadeInDelay = nodeFadeInDelays.get(msg.id) || 0;
+                        if (currentTime >= fadeInDelay) {
+                            nodeOpacity = Math.min(targetOpacity, currentOpacity + opacityChange);
+                        } else {
+                            // Waiting for delay - skip rendering entirely
+                            nodeOpacity = 0;
+                        }
+                    } else {
+                        nodeOpacity = currentOpacity;
+                    }
+
+                    nodeOpacities.set(msg.id, nodeOpacity);
+
+                    // Skip rendering if fully transparent or waiting for delay
+                    if (nodeOpacity <= 0.01) {
+                        performanceHiddenNodes.add(msg.id);
+                        continue;
+                    }
+                    performanceHiddenNodes.delete(msg.id);
+                } else {
+                    // Not in performance mode or is selected - ensure full opacity
+                    nodeOpacities.set(msg.id, 1.0);
+                }
+
+                visibleNodeCount++;
+
+                // Check if this node has a glow from tracer
+                const glowStrength = glowNodes.get(msg.id) || 0;
+
+                const hue = isSelected ? 60 : getCachedHue(msg.author); // Yellow for selected
+
+                // Draw glow/bloom effect (always for selected, or if connected by tracer)
+                if (bloomEnabled && (isSelected || glowStrength > 0)) {
+                    const effectiveGlow = isSelected ? 1 : glowStrength * 0.75; // 75% of original max for tracers
+                    const glowRadius = (isSelected ? 8 : pointSize) + 8 * effectiveGlow;
+                    const glowGradient = ctx.createRadialGradient(
+                        screenX, screenY, isSelected ? 8 : pointSize,
+                        screenX, screenY, glowRadius
+                    );
+                    glowGradient.addColorStop(0, `hsla(${hue}, 70%, 70%, ${0.6 * effectiveGlow})`);
+                    glowGradient.addColorStop(1, `hsla(${hue}, 70%, 70%, 0)`);
+
+                    ctx.fillStyle = glowGradient;
+                    ctx.beginPath();
+                    ctx.arc(screenX, screenY, glowRadius, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                // Draw the dot itself with opacity
+                if (isSelected) {
+                    ctx.fillStyle = `rgba(255, 255, 0, ${0.9 * nodeOpacity})`;
+                    ctx.beginPath();
+                    ctx.arc(screenX, screenY, 8, 0, Math.PI * 2);
+                    ctx.fill();
+                } else {
+                    ctx.fillStyle = `hsla(${hue}, 70%, 60%, ${0.8 * nodeOpacity})`;
+                    ctx.beginPath();
+                    ctx.arc(screenX, screenY, pointSize, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+
+            // Performance mode: adjust cull ratio based on FPS and viewport node count
+            if (performanceModeEnabled && isWindowFocused) {
+                // If viewport nodes decreased significantly (zoomed in), reduce culling
+                if (lastViewportNodeCount > 0 && viewportNodeCount < lastViewportNodeCount * 0.8) {
+                    nodeCullRatio = Math.max(0, nodeCullRatio - 0.05); // Quickly reduce culling when zooming in
+                }
+                // Otherwise use FPS-based adjustment with deadzone (50-60 fps)
+                else if (currentFPS < 50) {
+                    nodeCullRatio = Math.min(0.96, nodeCullRatio + 0.1); // Rapidly hide more nodes (cap at 96%)
+                } else if (currentFPS >= 60 && nodeCullRatio > 0) {
+                    nodeCullRatio = Math.max(0, nodeCullRatio - 0.1); // Rapidly show more nodes
+                }
+
+                lastViewportNodeCount = viewportNodeCount;
+            }
+
+            // Debug display (always visible)
+            const perfDebug = document.getElementById('perfDebug');
+            if (perfDebug) {
+                if (performanceModeEnabled) {
+                    perfDebug.textContent = `FPS: ${currentFPS.toFixed(1)} | Cull: ${(nodeCullRatio * 100).toFixed(0)}% | VP: ${viewportNodeCount} | Visible: ${visibleNodeCount}`;
+                } else {
+                    perfDebug.textContent = `FPS: ${currentFPS.toFixed(1)} | VP: ${viewportNodeCount}`;
+                }
+            }
+        }
+
+        function hashCode(str) {
+            let hash = 0;
+            for (let i = 0; i < str.length; i++) {
+                hash = ((hash << 5) - hash) + str.charCodeAt(i);
+                hash |= 0;
+            }
+            return Math.abs(hash);
+        }
+    </script>
+</body>
+</html>

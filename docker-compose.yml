@@ -1,0 +1,67 @@
+services:
+  pipeline:
+    build: .
+    volumes:
+      - ./exports:/app/exports:ro
+      - ./output:/app/output
+      - gensim_data:/root/gensim-data
+    command: >
+      sh -c "
+        echo '=== Discord Data Viz Pipeline ===' &&
+        echo '' &&
+        python pipeline/1_parse_exports.py &&
+        echo '' &&
+        python pipeline/2_generate_embeddings.py &&
+        echo '' &&
+        python pipeline/3_run_tsne.py &&
+        echo '' &&
+        python pipeline/4_cluster.py &&
+        echo '' &&
+        echo '=== Pipeline complete! ==='
+      "
+    profiles:
+      - pipeline
+
+  server:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./output:/app/output:ro
+    environment:
+      - NO_BROWSER=1
+    command: python serve.py
+    profiles:
+      - server
+
+  # Default: run pipeline then serve
+  viz:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./exports:/app/exports:ro
+      - ./output:/app/output
+      - gensim_data:/root/gensim-data
+    environment:
+      - NO_BROWSER=1
+    command: >
+      sh -c "
+        echo '=== Discord Data Viz Pipeline ===' &&
+        echo '' &&
+        python pipeline/1_parse_exports.py &&
+        echo '' &&
+        python pipeline/2_generate_embeddings.py &&
+        echo '' &&
+        python pipeline/3_run_tsne.py &&
+        echo '' &&
+        python pipeline/4_cluster.py &&
+        echo '' &&
+        echo '=== Pipeline complete! ===' &&
+        echo '' &&
+        echo 'Starting server on http://localhost:8080' &&
+        python serve.py
+      "
+
+volumes:
+  gensim_data:  # Cache the 1.6GB word2vec model

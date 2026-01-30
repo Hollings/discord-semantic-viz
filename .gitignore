@@ -1,0 +1,23 @@
+# User data - contains personal Discord messages
+exports/
+output/
+
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.Python
+venv/
+.venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Gensim model cache (large files)
+gensim-data/
