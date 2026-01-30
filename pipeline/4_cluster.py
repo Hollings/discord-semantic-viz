@@ -81,9 +81,9 @@ def main():
     # Goal: catch small clusters (10-20 messages) while keeping max around 1% of data
     n_messages = len(messages)
 
-    # Dynamic parameters targeting ~200 dense clusters
-    target_clusters = 200
-    min_cluster_size = max(10, n_messages // (target_clusters * 7))
+    # Dynamic parameters targeting ~100 dense clusters
+    target_clusters = 100
+    min_cluster_size = max(10, n_messages // (target_clusters * 9))
     # min_samples = min_cluster_size for dense clusters
     min_samples = min_cluster_size
 
