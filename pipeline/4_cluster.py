@@ -78,17 +78,14 @@ def main():
     coords = np.array([[msg['x'], msg['y']] for msg in messages])
 
     # Scale parameters based on dataset size
-    # Goal: clusters should be 2-10% of data, more granular for larger datasets
+    # Goal: catch small clusters (10-20 messages) while keeping max around 1% of data
     n_messages = len(messages)
 
-    if n_messages < 500:
-        min_cluster_size = max(5, n_messages // 20)  # ~5% for small datasets
-    elif n_messages < 5000:
-        min_cluster_size = max(15, n_messages // 50)  # ~2% for medium datasets
-    else:
-        min_cluster_size = max(50, n_messages // 100)  # ~1% for large datasets
+    # Very small min_cluster_size to catch small visual clusters
+    min_cluster_size = 10
 
-    min_samples = max(3, min_cluster_size // 3)
+    # min_samples controls how conservative clustering is - lower = more clusters
+    min_samples = 5
 
     print(f"Running HDBSCAN clustering (min_cluster_size={min_cluster_size}, min_samples={min_samples})...")
     clusterer = hdbscan.HDBSCAN(
