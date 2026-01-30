@@ -78,21 +78,39 @@ def main():
     coords = np.array([[msg['x'], msg['y']] for msg in messages])
 
     # Scale parameters based on dataset size
+    # Goal: clusters should be 2-10% of data, more granular for larger datasets
     n_messages = len(messages)
-    min_cluster_size = max(5, min(50, n_messages // 20))  # 5% of data, min 5, max 50
-    min_samples = max(2, min_cluster_size // 5)
+
+    if n_messages < 500:
+        min_cluster_size = max(5, n_messages // 20)  # ~5% for small datasets
+    elif n_messages < 5000:
+        min_cluster_size = max(15, n_messages // 50)  # ~2% for medium datasets
+    else:
+        min_cluster_size = max(50, n_messages // 100)  # ~1% for large datasets
+
+    min_samples = max(3, min_cluster_size // 3)
 
     print(f"Running HDBSCAN clustering (min_cluster_size={min_cluster_size}, min_samples={min_samples})...")
     clusterer = hdbscan.HDBSCAN(
         min_cluster_size=min_cluster_size,
         min_samples=min_samples,
-        cluster_selection_epsilon=0.5
+        cluster_selection_method='leaf',  # More granular clusters
+        # No epsilon - don't merge nearby clusters
     )
     labels = clusterer.fit_predict(coords)
 
     n_clusters = len(set(labels)) - (1 if -1 in labels else 0)
     n_noise = list(labels).count(-1)
-    print(f"Found {n_clusters} clusters, {n_noise} noise points")
+    print(f"Found {n_clusters} clusters, {n_noise} noise points ({n_noise * 100 // n_messages}% unclustered)")
+
+    # Check for oversized clusters (>10% of data) and warn
+    max_cluster_size = n_messages // 10
+    for label in set(labels):
+        if label == -1:
+            continue
+        count = list(labels).count(label)
+        if count > max_cluster_size:
+            print(f"  Warning: Cluster {label} has {count} messages ({count * 100 // n_messages}% of data)")
 
     # Group messages by cluster
     cluster_messages = {}
